@@ -12,15 +12,15 @@
 
 <br />
 
-**CCTE CNC** es una aplicación de escritorio profesional de alto rendimiento diseñada para la planificación de trayectorias, simulación 3D fotorrealista y control CNC en tiempo real de máquinas bobinadoras de filamento compuesto (*Filament Winders*) para cilindros presurizados, fuselajes y tubos estructurales de fibra de carbono/vidrio.
+**CCTE CNC** es una aplicación de escritorio profesional de alto rendimiento diseñada para la planificación de trayectorias, simulación 3D fotorrealista y control CNC en tiempo real de máquinas bobinadoras de filamento compuesto (*Filament Winders*) para cilindros presurizados, fuselajes y tubos estructurales de fibra de carbono y fibra de vidrio.
 
 </div>
 
 ---
 
-## 📐 Cinemática de 3 Ejes
+## Cinemática de 3 Ejes
 
-La aplicación está diseñada para sincronizar de forma continua tres ejes físicos de movimiento:
+La aplicación sincroniza de forma continua tres ejes físicos de movimiento:
 
 | Eje | Designación | Tipo | Unidad | Función en la Máquina |
 |:---:|:---|:---:|:---:|:---|
@@ -28,25 +28,25 @@ La aplicación está diseñada para sincronizar de forma continua tres ejes fís
 | **Y** | Mandril / Torno | Rotacional | `°` (grados) | Rotación continua del molde o cilindro de bobinado |
 | **Z** | Cabezal Dosificador | Rotacional | `°` (grados) | Orientación angular del cabezal de entrega de fibra |
 
-> **Nota:** El sistema permite operar en modo estándar de 3 ejes o alternar a 2 ejes mediante el toggle integrado en los ajustes de cinemática.
+> **Nota técnica:** El sistema permite operar en modo estándar de 3 ejes o alternar a 2 ejes mediante el selector integrado en los ajustes de cinemática.
 
 ---
 
-## ✨ Características Principales
+## Características del Sistema
 
-### 1. 🖥️ Entorno 3D CAD/CAM (Three.js & WebGL)
+### 1. Entorno 3D CAD/CAM (Three.js & WebGL)
 - **Mandril Sólido PBR:** Simulación física de cilindro con material metálico maquinado, tapas de extremo y husillos de sujeción.
 - **Visualización Volumétrica de Capas:** Renderizado de trayectorias con grosor de cinta proporcional al ancho del filamento (*Tow*), diferenciando capas circunferenciales (Azul Acero) y helicoidales (Ámbar Técnico).
-- **ViewCube 3D Interactivo:** Cubo de orientación estilo Autodesk / SolidWorks con navegación suave a vistas ortogonales (Frontal, Planta, Lateral, Isométrica).
-- **Optimización Extrema de GPU:** Renderizado bajo demanda (*Demand rendering*), limitación de ratio de píxeles (`dpr: 1.5`) y geometría optimizada en *BufferGeometry* (1 draw call por capa) para un rendimiento fluido en GPUs integradas.
+- **ViewCube 3D Interactivo:** Cubo de orientación estilo Autodesk / SolidWorks con navegación a vistas ortogonales (Frontal, Planta, Lateral, Isométrica).
+- **Optimización de GPU:** Renderizado bajo demanda (*Demand rendering*), limitación de ratio de píxeles (`dpr: 1.5`) y geometría agrupada en *BufferGeometry* (1 draw call por capa) para rendimiento fluido en GPUs integradas.
 
-### 2. ⚙️ Planificador de Bobinado (Trajectory Planner)
+### 2. Planificador de Bobinado (Trajectory Planner)
 - **Capas Circunferenciales (*Hoop Winding*):** Devanado a 90° con paso continuo y opción de modo terminal (solo ida sin retorno).
 - **Capas Helicoidales (*Helical Winding*):** Patrones cruzados (*criss-cross*) con cálculo exacto de ángulo de devanado ($\alpha$), *Pattern Number*, *Skip Index*, *Lock Degrees* de retención en extremos y *Lead In / Lead Out*.
 - **Estimación Técnica:** Cálculo instantáneo de longitud de filamento requerida (metros) y tiempo estimado de maquinado.
 - **Gestión de Recetas:** Guardado y carga de configuraciones completas en formato `.wind` / `.json`.
 
-### 3. 🔌 Controlador GRBL & Streaming en Tiempo Real
+### 3. Controlador GRBL & Streaming en Tiempo Real
 - **Detección Automática COM:** Reconocimiento de puertos seriales USB (Arduino Uno + CNC Shield V3) a 115200 baudios.
 - **Digital Readout (DRO):** Lectura en tiempo real de coordenadas de trabajo (`WPos`) para los ejes X, Y, Z.
 - **Jogging Manual Preciso:** Control por pasos milimétricos en X (`0.1`, `1`, `10`, `50`, `100 mm`) y angulares en Y/Z (`1°` a `360°`), con fijación de cero de trabajo (`G92 X0 Y0 Z0`), *Home* (`$H`) y *Unlock* (`$X`).
@@ -56,7 +56,7 @@ La aplicación está diseñada para sincronizar de forma continua tres ejes fís
 
 ---
 
-## 🏛️ Arquitectura del Software
+## Arquitectura del Software
 
 ```
 ccte-cnc/
@@ -90,7 +90,7 @@ ccte-cnc/
 
 ---
 
-## 🛠️ Requisitos de Hardware
+## Requisitos de Hardware
 
 - **Microcontrolador:** Arduino Uno R3 / Mega corriendo firmware **GRBL v1.1** (o compatible).
 - **Shield CNC:** Arduino CNC Shield V3 / V4 con drivers de micropaso (A4988 / DRV8825 / TMC2209).
@@ -98,7 +98,7 @@ ccte-cnc/
 
 ---
 
-## 🚀 Instalación y Puesta en Marcha
+## Instalación y Puesta en Marcha
 
 ### Prerrequisitos
 - [Node.js](https://nodejs.org/) v18.0 o superior
@@ -134,7 +134,7 @@ npm run package
 
 ---
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más información.
 

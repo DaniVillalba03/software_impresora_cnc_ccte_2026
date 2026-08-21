@@ -1,0 +1,23 @@
+appId: com.ccte.cnc
+productName: CCTE CNC
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**/*
+  - "!**/*.map"
+asar: true
+win:
+  icon: resources/icon.png
+  target:
+    - nsis
+    - portable
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: CCTE CNC
+portable:
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}

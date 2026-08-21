@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════
+   CCTE CNC — Professional CAD/CAM Interface Design System
+   High-density engineering layout (Fusion 360 / PrusaSlicer style)
+   ═══════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* Precision CAD Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #383c48 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #383c48;
+    border-radius: 2px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #4a5060;
+  }
+
+  body {
+    @apply bg-cnc-bg text-cnc-text font-sans text-[13px] leading-normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Remove number input spinners */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Top Titlebar & Headers */
+  .panel-header {
+    @apply px-3 py-2 border-b border-cnc-border bg-cnc-surface flex items-center justify-between select-none;
+  }
+  .panel-title {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-cnc-muted;
+  }
+  .panel-body {
+    @apply p-3 space-y-3;
+  }
+
+  /* Form & Input Groups with Integrated Engineering Unit Badges */
+  .cad-field-group {
+    @apply flex items-stretch bg-cnc-bg border border-cnc-border rounded transition-colors focus-within:border-cnc-primary focus-within:ring-1 focus-within:ring-cnc-primary/20;
+  }
+  .cad-field-input {
+    @apply w-full bg-transparent px-2.5 py-1 text-[12px] text-cnc-text font-mono focus:outline-none placeholder-cnc-muted/40;
+  }
+  .cad-field-unit {
+    @apply px-2 py-1 text-[11px] text-cnc-muted font-mono bg-cnc-elevated/50 border-l border-cnc-border/60 flex items-center justify-center select-none;
+  }
+  .cad-label {
+    @apply block text-[11px] font-medium text-cnc-muted mb-1;
+  }
+
+  /* Engineering Buttons */
+  .btn {
+    @apply px-3 py-1.5 rounded text-[12px] font-medium
+           transition-colors duration-150 active:scale-[0.98]
+           disabled:opacity-40 disabled:pointer-events-none
+           cursor-pointer select-none inline-flex items-center justify-center gap-1.5 border;
+  }
+  .btn-primary {
+    @apply btn bg-cnc-primary text-white border-cnc-primary
+           hover:bg-cnc-primary-hover hover:border-cnc-primary-hover;
+  }
+  .btn-secondary {
+    @apply btn bg-cnc-elevated text-cnc-text border-cnc-border
+           hover:bg-cnc-border hover:border-cnc-border-light;
+  }
+  .btn-success {
+    @apply btn bg-cnc-success text-white border-cnc-success
+           hover:brightness-110;
+  }
+  .btn-danger {
+    @apply btn bg-cnc-danger text-white border-cnc-danger
+           hover:brightness-110;
+  }
+  .btn-warning {
+    @apply btn bg-cnc-warning text-white border-cnc-warning
+           hover:brightness-110;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent border-transparent text-cnc-muted hover:text-cnc-text hover:bg-cnc-elevated;
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-[11px];
+  }
+  .btn-icon {
+    @apply w-6 h-6 p-0 flex items-center justify-center rounded border border-transparent hover:border-cnc-border hover:bg-cnc-elevated;
+  }
+
+  /* Electron window drag */
+  .app-drag {
+    -webkit-app-region: drag;
+  }
+  .app-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Layer Cards */
+  .cad-layer-card {
+    @apply bg-cnc-surface border border-cnc-border rounded p-2.5
+           transition-colors hover:border-cnc-border-light;
+  }
+  .cad-layer-card-hoop {
+    @apply cad-layer-card border-l-[3px] border-l-cnc-hoop;
+  }
+  .cad-layer-card-helical {
+    @apply cad-layer-card border-l-[3px] border-l-cnc-helical;
+  }
+
+  /* Status Badges */
+  .badge-state {
+    @apply text-[11px] font-mono px-2 py-0.5 rounded font-semibold uppercase tracking-wider border;
+  }
+  .badge-idle {
+    @apply badge-state bg-emerald-950/50 text-emerald-400 border-emerald-800/60;
+  }
+  .badge-run {
+    @apply badge-state bg-blue-950/50 text-blue-400 border-blue-800/60 animate-pulse;
+  }
+  .badge-hold {
+    @apply badge-state bg-amber-950/50 text-amber-400 border-amber-800/60;
+  }
+  .badge-alarm {
+    @apply badge-state bg-red-950/50 text-red-400 border-red-800/60;
+  }
+
+  /* Console */
+  .console-line {
+    @apply font-mono text-[11px] leading-relaxed py-0.5 px-1;
+  }
+  .console-ok {
+    @apply text-emerald-400;
+  }
+  .console-error {
+    @apply text-red-400 bg-red-950/20;
+  }
+  .console-info {
+    @apply text-cnc-muted;
+  }
+
+  /* G-code syntax */
+  .gcode-command { @apply text-blue-400 font-medium font-mono; }
+  .gcode-x { @apply text-emerald-400 font-mono; }
+  .gcode-y { @apply text-amber-400 font-mono; }
+  .gcode-z { @apply text-purple-400 font-mono; }
+  .gcode-f { @apply text-rose-400 font-mono; }
+  .gcode-comment { @apply text-cnc-muted/60 italic font-mono; }
+
+  /* Progress bar */
+  .progress-bar {
+    @apply w-full h-2 bg-cnc-bg rounded overflow-hidden border border-cnc-border;
+  }
+  .progress-fill {
+    @apply h-full bg-cnc-primary transition-all duration-200 ease-out;
+  }
+
+  /* Tab buttons */
+  .tab-btn {
+    @apply px-3 py-1.5 text-[12px] font-medium rounded transition-colors cursor-pointer select-none border border-transparent;
+  }
+  .tab-btn-active {
+    @apply tab-btn bg-cnc-elevated text-cnc-text border-cnc-border font-semibold;
+  }
+  .tab-btn-inactive {
+    @apply tab-btn text-cnc-muted hover:text-cnc-text hover:bg-cnc-surface;
+  }
+}

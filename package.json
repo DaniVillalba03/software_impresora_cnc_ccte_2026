@@ -1,0 +1,38 @@
+{
+  "name": "ccte-cnc",
+  "version": "1.0.0",
+  "description": "CCTE CNC — Professional Filament Winding Controller for Arduino GRBL",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-vite build && electron-builder --win --config electron-builder.yml",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "lucide-react": "^1.33.0",
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "@react-three/drei": "^9.0.0",
+    "@react-three/fiber": "^8.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.0",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.16",
+    "three": "^0.169.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0"
+  },
+  "author": "CCTE CNC",
+  "license": "MIT"
+}

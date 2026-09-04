@@ -20,6 +20,8 @@ export function planWind(windingParameters: IWindParameters, verboseOutput = fal
         tow: windingParameters.towParameters
     }
     machine.insertComment(`Parameters ${JSON.stringify(headerParameters)}`);
+    machine.addRawGCode('G21'); // Millimeters
+    machine.addRawGCode('G90'); // Absolute positioning
     machine.addRawGCode('G0 X0 Y0 Z0');
     machine.setFeedRate(windingParameters.defaultFeedRate);
     // TODO: Run other setup stuff

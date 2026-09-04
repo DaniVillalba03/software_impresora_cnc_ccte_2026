@@ -47,6 +47,7 @@ declare global {
       home: () => void
       unlock: () => void
       zeroAxes: () => void
+      goToOrigin: () => void
       sendSettings: (settings: string[]) => void
       motorTest: (axis: string) => void
       // Events

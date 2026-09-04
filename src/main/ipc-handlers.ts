@@ -119,6 +119,7 @@ export function registerIpcHandlers(): void {
   ipcMain.on('serial:unlock', () => grbl.unlock())
   ipcMain.on('serial:jog-cancel', () => grbl.jogCancel())
   ipcMain.on('serial:zero-axes', () => grbl.zeroWorkCoordinates())
+  ipcMain.on('serial:go-to-origin', () => grbl.goToOrigin())
 
   ipcMain.on('serial:send-settings', (_event, settings: string[]) => {
     grbl.sendSettings(settings)

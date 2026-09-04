@@ -34,6 +34,8 @@ export class GrblController extends EventEmitter {
   // Callback invoked once GRBL sends its welcome banner after reset.
   private _onGrblReady: (() => void) | null = null
   private _connectTimeout: ReturnType<typeof setTimeout> | null = null
+  private _readyDebounceTimeout: ReturnType<typeof setTimeout> | null = null
+  private _initialConfigDone = false
   private _isConfiguring = false
 
   get isConnected(): boolean {
@@ -73,6 +75,12 @@ export class GrblController extends EventEmitter {
           clearTimeout(this._connectTimeout)
           this._connectTimeout = null
         }
+        if (this._readyDebounceTimeout) {
+          clearTimeout(this._readyDebounceTimeout)
+          this._readyDebounceTimeout = null
+        }
+        this._initialConfigDone = false
+        this._isConfiguring = false
         this.emit('connection-status', { connected: false, port: portPath, baudRate })
       })
 
@@ -81,6 +89,8 @@ export class GrblController extends EventEmitter {
           return reject(new Error(`Error opening port: ${error.message}`))
         }
         this._isConnected = true
+        this._initialConfigDone = false
+        this._isConfiguring = false
         this.resetStreamState()
         this.emit('connection-status', { connected: true, port: portPath, baudRate })
 
@@ -88,6 +98,7 @@ export class GrblController extends EventEmitter {
         // we know it's ready to accept settings.
         this._onGrblReady = () => {
           this.sendSettingsSequential(this.SAFE_GRBL_SETTINGS, () => {
+            this._initialConfigDone = true
             this.emit('data', '[INFO] Configuración GRBL para DRV8825 enviada')
             setTimeout(() => {
               this.sendImmediate('$X')
@@ -137,9 +148,9 @@ export class GrblController extends EventEmitter {
     '$20=0',      // Soft limits — disabled (no homing reference yet)
     '$21=0',      // Hard limits — disabled (avoid false alarms from noise)
     '$22=0',      // Homing cycle — disabled by default
-    '$100=0.556',    // X steps/unit (0.556 steps/deg = 200 steps/360°)
-    '$101=0.556',    // Y steps/unit (0.556 steps/deg = 200 steps/360°)
-    '$102=0.556',    // Z steps/unit (0.556 steps/deg = 200 steps/360°)
+    '$100=0.556',    // X steps/deg (full step: 200 steps/rev ÷ 360°)
+    '$101=0.556',    // Y steps/deg
+    '$102=0.556',    // Z steps/deg
     '$110=2000.000', // X max rate (deg/min) — ~5.5 RPM
     '$111=2000.000', // Y max rate (deg/min)
     '$112=2000.000', // Z max rate (deg/min)
@@ -158,6 +169,9 @@ export class GrblController extends EventEmitter {
     if (!this.port?.isOpen || settings.length === 0) {
       this._isConfiguring = false
       callback?.()
+      return
+    }
+    if (this._isConfiguring) {
       return
     }
     this._isConfiguring = true
@@ -217,6 +231,13 @@ export class GrblController extends EventEmitter {
   async disconnect(): Promise<void> {
     this.stopStatusPolling()
     this.resetStreamState()
+    if (this._readyDebounceTimeout) {
+      clearTimeout(this._readyDebounceTimeout)
+      this._readyDebounceTimeout = null
+    }
+    this._onGrblReady = null
+    this._initialConfigDone = false
+    this._isConfiguring = false
 
     return new Promise((resolve) => {
       if (!this.port || !this.port.isOpen) {
@@ -263,18 +284,18 @@ export class GrblController extends EventEmitter {
     this.port.write('?')
   }
 
-  // ── Jogging (GRBL 1.1h — native $J= jog commands) ────────────
+  // ── Jogging ──────────────────────────────────────────────────
 
-  /** Send jog command using native $J= (GRBL 1.1h)
-   *  $J= commands don't alter the G-code parser state and can be
-   *  cancelled instantly with the 0x85 real-time command. */
-  jog(axis: string, distance: number, feedRate: number): void {
+  /** Send jog motion command.
+   *  Uses standard G91 G0 motion which works reliably across all GRBL
+   *  firmware versions and avoids modal/travel-limit lockouts of $J=. */
+  jog(axis: string, distance: number, _feedRate?: number): void {
     if (!this.port?.isOpen) return
     if (this._isConfiguring) {
       this.emit('data', '[WARN] Esperando configuración GRBL...')
       return
     }
-    const cmd = `$J=G91 ${axis}${distance} F${feedRate}`
+    const cmd = `G91 G0 ${axis}${distance}`
     this.emit('data', `[JOG] Enviando: ${cmd}`)
     this.sendImmediate(cmd)
   }
@@ -348,6 +369,14 @@ export class GrblController extends EventEmitter {
     this.sendImmediate('G92 X0 Y0 Z0')
   }
 
+  /** Move all axes to the origin (0,0,0) at a safe speed */
+  goToOrigin(feedRate = 500): void {
+    if (!this.port?.isOpen) return
+    this.emit('data', '[INFO] Moviendo al origen (0,0,0)...')
+    this.sendImmediate('G90')
+    this.sendImmediate(`G1 X0 Y0 Z0 F${feedRate}`)
+  }
+
   // ── Immediate Command ────────────────────────────────────────
 
   /** Send a single command immediately (not part of streaming) */
@@ -360,11 +389,17 @@ export class GrblController extends EventEmitter {
 
   /** Start streaming G-code with character-counting protocol */
   startStreaming(gcode: string[]): void {
-    this.streamQueue = gcode.filter((line) => {
+    const cleaned = gcode.filter((line) => {
       const trimmed = line.trim()
       return trimmed.length > 0 && !trimmed.startsWith(';')
     })
 
+    // Safety preamble: always ensure absolute coordinates and metric units
+    const preamble: string[] = []
+    if (!cleaned[0]?.startsWith('G21')) preamble.push('G21')
+    if (!cleaned.some((l) => l.startsWith('G90'))) preamble.push('G90')
+
+    this.streamQueue = [...preamble, ...cleaned]
     this.streamSentIndex = 0
     this.streamAckedCount = 0
     this.streamTotal = this.streamQueue.length
@@ -485,19 +520,28 @@ export class GrblController extends EventEmitter {
     if (line.startsWith('Grbl')) {
       this.emit('data', line)
 
-      // If we're waiting for GRBL to be ready (initial connect), trigger callback
-      if (this._onGrblReady) {
+      // Initial connection: wait for boot banners to settle before configuring
+      if (!this._initialConfigDone) {
         if (this._connectTimeout) {
           clearTimeout(this._connectTimeout)
           this._connectTimeout = null
         }
-        // Brief delay to let GRBL finish initializing after welcome
-        const cb = this._onGrblReady
-        this._onGrblReady = null
-        setTimeout(() => cb(), 200)
-      } else if (this._isConnected) {
-        // Arduino rebooted mid-session (brownout / power glitch).
-        // Re-send safe settings so GRBL is configured again.
+        if (this._readyDebounceTimeout) {
+          clearTimeout(this._readyDebounceTimeout)
+        }
+        this._readyDebounceTimeout = setTimeout(() => {
+          this._readyDebounceTimeout = null
+          if (this._onGrblReady) {
+            const cb = this._onGrblReady
+            this._onGrblReady = null
+            cb()
+          }
+        }, 400)
+        return
+      }
+
+      // Mid-session reboot (Arduino brownout / reset AFTER initial connect has finished)
+      if (this._isConnected && !this._isConfiguring) {
         this.emit('data', '[WARN] Arduino se reinició — reenviando configuración')
         this.resetStreamState()
         this.sendSettingsSequential(this.SAFE_GRBL_SETTINGS, () => {

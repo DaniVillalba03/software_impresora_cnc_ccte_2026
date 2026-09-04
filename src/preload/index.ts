@@ -42,6 +42,7 @@ const api = {
   unlock:    () => ipcRenderer.send('serial:unlock'),
   jogCancel: () => ipcRenderer.send('serial:jog-cancel'),
   zeroAxes:  () => ipcRenderer.send('serial:zero-axes'),
+  goToOrigin: () => ipcRenderer.send('serial:go-to-origin'),
 
   sendSettings: (settings: string[]) =>
     ipcRenderer.send('serial:send-settings', settings),

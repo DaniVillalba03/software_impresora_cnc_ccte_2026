@@ -20,7 +20,8 @@ import {
   Trash2,
   Clock,
   Activity,
-  Settings
+  Settings,
+  Navigation
 } from 'lucide-react'
 
 interface Props {
@@ -43,8 +44,8 @@ export default function MachineControl({
   const [baudRate, setBaudRate] = useState(115200)
   const [jogStepX, setJogStepX] = useState(10)
   const [jogAngleY, setJogAngleY] = useState(90)
-  const [jogAngleZ, setJogAngleZ] = useState(10)
-  const [jogFeedRate, setJogFeedRate] = useState(100)
+  const [jogAngleZ, setJogAngleZ] = useState(45)
+  const [jogFeedRate, setJogFeedRate] = useState(1500)
   const [manualCmd, setManualCmd] = useState('')
   const [activeConsole, setActiveConsole] = useState<string[]>(consoleLines)
   const consoleEndRef = useRef<HTMLDivElement>(null)
@@ -299,7 +300,7 @@ export default function MachineControl({
               <span>−{jogAngleZ}°</span>
             </button>
             <div className="flex gap-0.5 bg-cnc-bg border border-cnc-border rounded p-0.5">
-              {[1, 5, 10, 30, 45, 90].map((v) => (
+              {[1, 5, 10, 45, 90, 360].map((v) => (
                 <button
                   key={v}
                   onClick={() => setJogAngleZ(v)}
@@ -330,6 +331,16 @@ export default function MachineControl({
               <Crosshair className="w-3 h-3 text-blue-400" />
               <span>Cero (G92)</span>
             </button>
+            <button
+              className="btn-secondary flex-1 py-1 text-[11px] text-zinc-300"
+              onClick={() => window.cycloneAPI.goToOrigin()}
+              title="Mover todos los ejes a la posición 0,0,0"
+            >
+              <Navigation className="w-3 h-3 text-emerald-400" />
+              <span>Ir al Origen</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
               className="btn-secondary flex-1 py-1 text-[11px] text-zinc-300"
               onClick={() => window.cycloneAPI.home()}

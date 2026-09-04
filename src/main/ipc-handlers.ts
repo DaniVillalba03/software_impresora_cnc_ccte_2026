@@ -114,6 +114,7 @@ export function registerIpcHandlers(): void {
   // Real-time controls (fire-and-forget via ipcMain.on)
   ipcMain.on('serial:pause', () => grbl.pauseStream())
   ipcMain.on('serial:resume', () => grbl.resumeStream())
+  ipcMain.on('serial:stop', () => grbl.stopStream())
   ipcMain.on('serial:abort', () => grbl.abortStream())
   ipcMain.on('serial:home', () => grbl.home())
   ipcMain.on('serial:unlock', () => grbl.unlock())

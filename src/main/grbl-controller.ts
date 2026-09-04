@@ -37,6 +37,7 @@ export class GrblController extends EventEmitter {
   private _readyDebounceTimeout: ReturnType<typeof setTimeout> | null = null
   private _initialConfigDone = false
   private _isConfiguring = false
+  private _isStopping = false
 
   get isConnected(): boolean {
     return this._isConnected
@@ -422,16 +423,72 @@ export class GrblController extends EventEmitter {
     this.cycleResume()
   }
 
-  /** Abort streaming (GRBL soft reset) */
-  abortStream(): void {
-    this.softReset()
+  /** Stop and cancel streaming immediately:
+   *  1. Immediately halts motion with Feed Hold (!)
+   *  2. Clears remaining memory queue (streamQueue = []) so no remaining lines are executed
+   *  3. Flushes GRBL's internal buffer (0x18) and unlocks ($X)
+   *  4. Resets streaming state and progress to ready/idle
+   */
+  stopStream(): void {
+    if (!this.port?.isOpen) return
+
+    this._isStopping = true
+
+    // 1. Immediately pause motion
+    this.port.write('!')
+
+    // 2. Clear remaining memory queue so no further lines are ever sent
+    this.resetStreamState()
+
+    this.emit('data', '[INFO] Deteniendo bobinado y purgando cola de comandos...')
+
+    // 3. Purge GRBL buffer with soft reset and unlock
+    setTimeout(() => {
+      if (this.port?.isOpen) {
+        this.port.write(Buffer.from([0x18]))
+
+        setTimeout(() => {
+          if (this.port?.isOpen) {
+            this._isStopping = false
+            this.sendImmediate('$X')
+            this.statusQuery()
+            this.emit('data', '[INFO] Bobinado detenido. Memoria purgada y máquina lista en Idle.')
+          } else {
+            this._isStopping = false
+          }
+        }, 150)
+      } else {
+        this._isStopping = false
+      }
+    }, 60)
+
+    // 4. Reset UI progress
     this.emit('stream-progress', {
-      currentLine: this.streamAckedCount,
-      totalLines: this.streamTotal,
-      percent: 100,
-      elapsedS: (Date.now() - this.streamStartTime) / 1000,
+      currentLine: 0,
+      totalLines: 0,
+      percent: 0,
+      elapsedS: 0,
       complete: true,
     })
+  }
+
+  /** Abort streaming (GRBL emergency stop) */
+  abortStream(): void {
+    this._isStopping = true
+    this.resetStreamState()
+    this.softReset()
+    setTimeout(() => {
+      this._isStopping = false
+      this.statusQuery()
+    }, 200)
+    this.emit('stream-progress', {
+      currentLine: 0,
+      totalLines: 0,
+      percent: 0,
+      elapsedS: 0,
+      complete: true,
+    })
+    this.emit('data', '[ALARM] E-STOP activado. Presione Unlock ($X) para reanudar control manual.')
   }
 
   // ── Private: Character-Counting Streaming Protocol ───────────
@@ -519,6 +576,11 @@ export class GrblController extends EventEmitter {
     // GRBL welcome banner — means GRBL just booted (initial connect or reset)
     if (line.startsWith('Grbl')) {
       this.emit('data', line)
+
+      // If this reset was triggered by stopStream or abortStream, do not re-send config
+      if (this._isStopping) {
+        return
+      }
 
       // Initial connection: wait for boot banners to settle before configuring
       if (!this._initialConfigDone) {

@@ -41,6 +41,7 @@ declare global {
       startStreaming: (gcode: string[]) => Promise<void>
       pause: () => void
       resume: () => void
+      stop: () => void
       abort: () => void
       jog: (axis: string, distance: number, feedRate: number) => void
       jogCancel: () => void

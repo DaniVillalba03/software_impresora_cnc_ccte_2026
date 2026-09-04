@@ -162,7 +162,21 @@ export function planHelicalLayer(machine: WinderMachine, layerParameters: ILayer
     // Divide the circumference by the tow arc length to get the number of circuits to cover the surface
     // Note that each circuit includes a "there" and a "back" portion, and including both this number of circuits will
     // cover the mandrel twice
-    const numCircuits = Math.ceil(mandrelCircumference / towArcLength);
+    // Divide the circumference by the tow arc length to get the number of circuits to cover the surface
+    // Note that each circuit includes a "there" and a "back" portion, and including both this number of circuits will
+    // cover the mandrel twice
+    let numCircuits = Math.ceil(mandrelCircumference / towArcLength);
+    // The number of "start positions", evenly spaced around the mandrel
+    const patternNumber = Math.max(1, layerParameters.parameters.patternNumber || 1);
+
+    // Ensure numCircuits is an exact multiple of patternNumber so the winding pattern completes symmetrically without gaps
+    const remainder = numCircuits % patternNumber;
+    if (remainder !== 0) {
+        const adjusted = numCircuits + (patternNumber - remainder);
+        console.log(`Ajustando circuitos helicoidales de ${numCircuits} a ${adjusted} para ser múltiplo de Pattern Number (${patternNumber})`);
+        numCircuits = adjusted;
+    }
+
     // After each pattern (<pattern number> cycles evenly spaced around the mandrel) how much to rotate the mandrel
     const patternStepDegrees = 360 * (1 / numCircuits);
     // How many MM the surface of the mandrel should move per pass based on the length and wind angle
@@ -171,10 +185,8 @@ export function planHelicalLayer(machine: WinderMachine, layerParameters: ILayer
     const passRotationDegrees = 360 * (passRotationMM / mandrelCircumference);
     // The number of degrees of mandrel rotation per MM of carriage movement during winding
     const passDegreesPerMM = passRotationDegrees / layerParameters.mandrelParameters.windLength;
-    // The number of "start positions", evenly spaced around the mandrel
-    const patternNumber = layerParameters.parameters.patternNumber;
     // The number of patterns that will be completed to cover the mandrel
-    const numberOfPatterns = numCircuits / layerParameters.parameters.patternNumber;
+    const numberOfPatterns = Math.round(numCircuits / patternNumber);
     // The number of degrees to rotate the mandrel during the lead in
     const leadInDegrees = passDegreesPerMM * windLeadInMM;
     // The number of degrees to rotate the mandrel during the middle (non-leadin) part of a pass
@@ -193,12 +205,7 @@ export function planHelicalLayer(machine: WinderMachine, layerParameters: ILayer
         }
     ]
 
-    console.log(`Doing helical wind, ${numCircuits} circuits`);
-    // TODO: move validation/adjustment to a function
-    if (numCircuits % layerParameters.parameters.patternNumber !== 0) {
-        console.warn(`Circuit number of ${numCircuits} not divisible by pattern number of ${layerParameters.parameters.patternNumber}`);
-        return void 0;
-    }
+    console.log(`Doing helical wind, ${numCircuits} circuits (${numberOfPatterns} patrones de ${patternNumber} circuitos)`);
 
     if (typeof layerParameters.parameters.skipInitialNearLock === 'undefined' || !layerParameters.parameters.skipInitialNearLock) {
         machine.move({
@@ -256,11 +263,12 @@ export function planHelicalLayer(machine: WinderMachine, layerParameters: ILayer
             }
 
             // Move to the next start position in this pattern
-            mandrelPositionDegrees += patternStepDegrees * numCircuits / layerParameters.parameters.patternNumber;
+            mandrelPositionDegrees += (patternStepDegrees * numCircuits) / patternNumber;
         }
 
         // Move to the next pattern start position
-        mandrelPositionDegrees += patternStepDegrees;
+        const skipIndex = Math.max(1, layerParameters.parameters.skipIndex || 1);
+        mandrelPositionDegrees += patternStepDegrees * skipIndex;
     }
 
     mandrelPositionDegrees += lockDegrees;

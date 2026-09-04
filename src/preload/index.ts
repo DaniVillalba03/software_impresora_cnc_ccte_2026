@@ -37,6 +37,7 @@ const api = {
   // Real-time controls (fire-and-forget, no response needed)
   pause:     () => ipcRenderer.send('serial:pause'),
   resume:    () => ipcRenderer.send('serial:resume'),
+  stop:      () => ipcRenderer.send('serial:stop'),
   abort:     () => ipcRenderer.send('serial:abort'),
   home:      () => ipcRenderer.send('serial:home'),
   unlock:    () => ipcRenderer.send('serial:unlock'),

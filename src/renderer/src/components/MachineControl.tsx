@@ -21,7 +21,8 @@ import {
   Clock,
   Activity,
   Settings,
-  Navigation
+  Navigation,
+  Square
 } from 'lucide-react'
 
 interface Props {
@@ -416,6 +417,19 @@ export default function MachineControl({
             )}
           </div>
 
+          {/* Program loaded status badge */}
+          <div className="flex items-center justify-between text-[11px] font-mono bg-cnc-surface border border-cnc-border rounded px-2.5 py-1.5">
+            <span className="text-zinc-400 font-sans text-[11px]">Programa cargado:</span>
+            {gcode && gcode.length > 0 ? (
+              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{gcode.length.toLocaleString()} líneas</span>
+              </span>
+            ) : (
+              <span className="text-zinc-500 italic">Sin G-Code (Genere uno)</span>
+            )}
+          </div>
+
           {/* Progress bar */}
           {isStreaming && streamProgress && (
             <div className="space-y-1">
@@ -434,37 +448,51 @@ export default function MachineControl({
           <div className="flex gap-1.5">
             {!isStreaming ? (
               <button
-                className="btn-success flex-1 py-2 text-[12px] font-semibold tracking-wide shadow-sm"
+                className="btn-success flex-1 py-2 text-[12px] font-semibold tracking-wide shadow-sm flex items-center justify-center gap-1.5"
                 disabled={!gcode || !isIdle}
                 onClick={() => gcode && window.cycloneAPI.startStreaming(gcode)}
+                title={!gcode ? 'Genere el código G antes de iniciar' : !isIdle ? 'La máquina debe estar en estado Idle' : 'Iniciar ejecución de bobinado'}
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Iniciar Bobinado</span>
               </button>
             ) : (
               <>
+                {/* Botón Pausar / Reanudar */}
                 {grblStatus?.state === 'Hold' ? (
                   <button
-                    className="btn-warning flex-1 py-2 text-[12px] font-semibold"
+                    className="btn-warning flex-1 py-2 text-[12px] font-semibold flex items-center justify-center gap-1.5"
                     onClick={() => window.cycloneAPI.resume()}
+                    title="Reanudar el bobinado en curso (~)"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
                     <span>Reanudar</span>
                   </button>
                 ) : (
                   <button
-                    className="btn-warning flex-1 py-2 text-[12px] font-semibold"
+                    className="btn-warning flex-1 py-2 text-[12px] font-semibold flex items-center justify-center gap-1.5"
                     onClick={() => window.cycloneAPI.pause()}
+                    title="Pausar el avance temporalmente (!)"
                   >
                     <Pause className="w-3.5 h-3.5 fill-current" />
                     <span>Pausar</span>
                   </button>
                 )}
+
+                {/* Botón Detener (Stop) — Cancela y borra la memoria */}
+                <button
+                  className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex-1 py-2 px-2.5 text-[12px] rounded flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                  onClick={() => window.cycloneAPI.stop()}
+                  title="Detener bobinado inmediatamente y borrar de la memoria todas las líneas restantes"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Detener</span>
+                </button>
               </>
             )}
 
             <button
-              className="btn-danger px-3 py-2 text-[12px] font-bold tracking-wider shadow-sm"
+              className="btn-danger px-3 py-2 text-[12px] font-bold tracking-wider shadow-sm flex items-center gap-1"
               onClick={() => window.cycloneAPI.abort()}
               title="PARADA DE EMERGENCIA — Envía Soft Reset (0x18) a GRBL"
             >

@@ -43,7 +43,20 @@ export default function App() {
     try {
       const result = await window.cycloneAPI.generateGCode(config)
       setGcodeResult(result)
+      setStreamProgress(null) // Reset streaming progress so the new program is fresh and ready
       setRightTab('gcode')
+      const newLogs: string[] = []
+      if (result.logs && result.logs.length > 0) {
+        result.logs.forEach((log) => {
+          if (log.includes('Ajustando') || log.startsWith('[WARN]')) {
+            newLogs.push(log.startsWith('[') ? log : `[INFO] ${log}`)
+          }
+        })
+      }
+      newLogs.push(
+        `[INFO] G-Code generado con éxito: ${result.gcode.length} líneas, ~${Math.round(result.timeEstimateS)}s, ${result.towLengthM.toFixed(1)}m tow — listo para Control GRBL.`
+      )
+      setConsoleLines((prev) => [...prev, ...newLogs])
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       setConsoleLines((prev) => [...prev, `[ERROR] ${msg}`])

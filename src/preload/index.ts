@@ -41,9 +41,16 @@ const api = {
   home:      () => ipcRenderer.send('serial:home'),
   unlock:    () => ipcRenderer.send('serial:unlock'),
   jogCancel: () => ipcRenderer.send('serial:jog-cancel'),
+  zeroAxes:  () => ipcRenderer.send('serial:zero-axes'),
+
+  sendSettings: (settings: string[]) =>
+    ipcRenderer.send('serial:send-settings', settings),
 
   jog: (axis: string, distance: number, feedRate: number) =>
     ipcRenderer.send('serial:jog', axis, distance, feedRate),
+
+  motorTest: (axis: string) =>
+    ipcRenderer.send('serial:motor-test', axis),
 
   // ── Event Listeners (main → renderer) ──────────────────────
   // Each returns an unsubscribe function for cleanup

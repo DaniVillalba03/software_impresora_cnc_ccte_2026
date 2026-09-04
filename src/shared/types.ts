@@ -95,7 +95,7 @@ export const DEFAULT_WIND_CONFIG: WindConfig = {
   layers: [],
   mandrelParameters: { diameter: 70, windLength: 500 },
   towParameters: { width: 7, thickness: 0.5 },
-  defaultFeedRate: 9000,
+  defaultFeedRate: 3000,
   enableZAxis: true,
 }
 

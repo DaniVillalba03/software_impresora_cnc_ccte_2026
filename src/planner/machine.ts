@@ -31,7 +31,9 @@ export class WinderMachine {
 
     public setFeedRate(feedRateMMpM: number): void {
         this.feedRateMMpM = feedRateMMpM;
-        this.gcode.push(`G0 F${stripPrecision(feedRateMMpM)}`);
+        // Use G1 so GRBL respects the feed rate. G0 ignores F and runs at max speed,
+        // which causes stepper motors to stall, vibrate, and overheat.
+        this.gcode.push(`G1 F${stripPrecision(feedRateMMpM)}`);
     }
 
     public move(position: TCoordinate): void {
@@ -46,8 +48,11 @@ export class WinderMachine {
             }
             return this.moveSegment(position);
         }
-        // For segmented moves, divide the total move so each piece has ~1mm of carriage movement
-        const numSegments = Math.round(Math.abs(this.lastPosition[ECoordinateAxes.CARRIAGE] - completeEndPosition[ECoordinateAxes.CARRIAGE])) + 1;
+        // For segmented moves, divide the total move so each piece has ~10mm of carriage movement.
+        // Using smaller segments (e.g. 1mm) causes excessive start/stop micro-movements
+        // that make stepper motors vibrate and overheat.
+        const SEGMENT_SIZE_MM = 10;
+        const numSegments = Math.max(2, Math.round(Math.abs(this.lastPosition[ECoordinateAxes.CARRIAGE] - completeEndPosition[ECoordinateAxes.CARRIAGE]) / SEGMENT_SIZE_MM) + 1);
         if (this.verboseOutput) {
             this.insertComment(`Move from ${serializeCoordinate(this.lastPosition)} to ${serializeCoordinate(completeEndPosition)} in ${numSegments} segments`);
         }
@@ -101,14 +106,17 @@ export class WinderMachine {
         this.mandrelDiameter = mandrelDiameter;
     }
 
-    // We have to split up moves into many tiny chunks, because marlin only allows pausing after a command completes
+    // We split up moves into chunks so GRBL can pause between them
     private moveSegment(position: TCoordinate): void {
-        // Distance of the move in "Marlin Units", used for time profiling
-        //  Treats mandrel degrees as MM and accounts for delivery head movements, because that's what marlin does
+        // Distance of the move in "GRBL Units", used for time profiling
+        //  Treats mandrel degrees as MM and accounts for delivery head movements, because that's what GRBL does
         let totalDistanceMarlinUnitsSq = 0;
         // Total distance of the move in actual MM, taking into account mandrel diameter and ignoring delivery head
         let towLengthMMSq = 0;
-        let command = 'G0';
+        // Use G1 (linear interpolation) so GRBL respects the feed rate F.
+        // G0 (rapid) ignores F and moves at $110/$111/$112 max rates,
+        // which causes stepper motors to stall, vibrate, and overheat.
+        let command = 'G1';
         for (const axis in position) {
             const rawAxis = AxisLookup[axis as ECoordinateAxes];
             command += ` ${rawAxis}${stripPrecision(position[axis as ECoordinateAxes])}`;

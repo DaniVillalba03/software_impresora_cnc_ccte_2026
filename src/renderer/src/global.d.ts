@@ -46,6 +46,9 @@ declare global {
       jogCancel: () => void
       home: () => void
       unlock: () => void
+      zeroAxes: () => void
+      sendSettings: (settings: string[]) => void
+      motorTest: (axis: string) => void
       // Events
       onSerialData: (cb: (data: string) => void) => () => void
       onGrblStatus: (cb: (status: import('@shared/types').GrblStatus) => void) => () => void

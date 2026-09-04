@@ -30,6 +30,12 @@ export class GrblController extends EventEmitter {
   // ── Status Polling ───────────────────────────────────────────
   private statusInterval: ReturnType<typeof setInterval> | null = null
 
+  // ── Connection handshake ─────────────────────────────────────
+  // Callback invoked once GRBL sends its welcome banner after reset.
+  private _onGrblReady: (() => void) | null = null
+  private _connectTimeout: ReturnType<typeof setTimeout> | null = null
+  private _isConfiguring = false
+
   get isConnected(): boolean {
     return this._isConnected
   }
@@ -62,6 +68,11 @@ export class GrblController extends EventEmitter {
       this.port.on('close', () => {
         this._isConnected = false
         this.stopStatusPolling()
+        this._onGrblReady = null
+        if (this._connectTimeout) {
+          clearTimeout(this._connectTimeout)
+          this._connectTimeout = null
+        }
         this.emit('connection-status', { connected: false, port: portPath, baudRate })
       })
 
@@ -73,13 +84,132 @@ export class GrblController extends EventEmitter {
         this.resetStreamState()
         this.emit('connection-status', { connected: true, port: portPath, baudRate })
 
-        // Wait for GRBL to initialize, then send soft reset
+        // Register callback: when GRBL sends its welcome banner,
+        // we know it's ready to accept settings.
+        this._onGrblReady = () => {
+          this.sendSettingsSequential(this.SAFE_GRBL_SETTINGS, () => {
+            this.emit('data', '[INFO] Configuración GRBL para DRV8825 enviada')
+            setTimeout(() => {
+              this.sendImmediate('$X')
+              this.startStatusPolling()
+              resolve()
+            }, 100)
+          })
+        }
+
+        // Send soft reset ONLY if GRBL hasn't responded yet.
+        // Opening the serial port toggles DTR which resets the Arduino,
+        // so the banner usually arrives before 1500ms. Only if it doesn't
+        // (e.g. Arduino was already running) do we force a reset.
         setTimeout(() => {
-          this.softReset()
-          this.startStatusPolling()
-          resolve()
+          if (this._onGrblReady) {
+            this.softReset()
+          }
         }, 1500)
+
+        // Fallback: if GRBL never sends its welcome banner (e.g. it
+        // was already running), proceed after 5 seconds.
+        this._connectTimeout = setTimeout(() => {
+          if (this._onGrblReady) {
+            const cb = this._onGrblReady
+            this._onGrblReady = null
+            cb()
+          }
+        }, 5000)
       })
+    })
+  }
+
+  // ── GRBL Configuration for DRV8825 on CNC Shield V3 ────────
+
+  /**
+   * Safe GRBL settings for DRV8825 drivers on CNC Shield V3.
+   * These prevent motor stalling, overheating, and excessive current draw.
+   */
+  private readonly SAFE_GRBL_SETTINGS: string[] = [
+    '$0=10',      // Step pulse duration (µs) — DRV8825 needs ≥1.9µs, 10 is safe
+    '$1=25',      // Step idle delay (ms) — disable motors quickly after idle
+    // (255 = always on → draws constant current → Arduino brownout)
+    '$3=0',       // Direction invert mask — normal (00000000)
+    '$4=0',       // Step enable invert — normal (active low for CNC Shield)
+    '$5=0',       // Limit pins invert — normal
+    '$6=0',       // Probe pin invert — normal
+    '$20=0',      // Soft limits — disabled (no homing reference yet)
+    '$21=0',      // Hard limits — disabled (avoid false alarms from noise)
+    '$22=0',      // Homing cycle — disabled by default
+    '$100=0.556',    // X steps/unit (0.556 steps/deg = 200 steps/360°)
+    '$101=0.556',    // Y steps/unit (0.556 steps/deg = 200 steps/360°)
+    '$102=0.556',    // Z steps/unit (0.556 steps/deg = 200 steps/360°)
+    '$110=2000.000', // X max rate (deg/min) — ~5.5 RPM
+    '$111=2000.000', // Y max rate (deg/min)
+    '$112=2000.000', // Z max rate (deg/min)
+    '$120=100.000',  // X acceleration (deg/s²)
+    '$121=100.000',  // Y acceleration (deg/s²)
+    '$122=100.000',  // Z acceleration (deg/s²)
+  ]
+
+  /**
+   * Send an array of GRBL settings sequentially, waiting for 'ok' (or error)
+   * from GRBL after each setting before sending the next one.
+   * EEPROM writes block the microcontroller; without handshake, settings like
+   * $1=25 are dropped or corrupted with 'error: Invalid statement'.
+   */
+  private sendSettingsSequential(settings: string[], callback?: () => void): void {
+    if (!this.port?.isOpen || settings.length === 0) {
+      this._isConfiguring = false
+      callback?.()
+      return
+    }
+    this._isConfiguring = true
+    let i = 0
+
+    const sendCurrent = () => {
+      if (i >= settings.length || !this.port?.isOpen) {
+        this._isConfiguring = false
+        callback?.()
+        return
+      }
+      const cmd = settings[i]
+      this.port.write(cmd + '\n')
+
+      let handled = false
+      const onResponse = (data: string) => {
+        if (!handled && (data === 'ok' || data.startsWith('error:'))) {
+          handled = true
+          this.removeListener('data', onResponse)
+          i++
+          // Small 30ms breather after EEPROM write
+          setTimeout(sendCurrent, 30)
+        }
+      }
+      this.on('data', onResponse)
+
+      // Fallback timeout in case no response within 1000ms
+      setTimeout(() => {
+        if (!handled) {
+          handled = true
+          this.removeListener('data', onResponse)
+          i++
+          sendCurrent()
+        }
+      }, 1000)
+    }
+
+    sendCurrent()
+  }
+
+  /** Send custom GRBL settings from the UI */
+  sendSettings(settings: string[]): void {
+    if (this._isConfiguring) {
+      this.emit('data', '[WARN] Esperando configuración anterior...')
+      return
+    }
+    const filtered = settings
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('$') && s.includes('='))
+
+    this.sendSettingsSequential(filtered, () => {
+      this.emit('data', '[INFO] Configuración GRBL personalizada enviada')
     })
   }
 
@@ -133,16 +263,47 @@ export class GrblController extends EventEmitter {
     this.port.write('?')
   }
 
-  // ── Jogging ──────────────────────────────────────────────────
+  // ── Jogging (GRBL 1.1h — native $J= jog commands) ────────────
 
-  /** Send jog command: $J=G91 X10 F1000 */
+  /** Send jog command using native $J= (GRBL 1.1h)
+   *  $J= commands don't alter the G-code parser state and can be
+   *  cancelled instantly with the 0x85 real-time command. */
   jog(axis: string, distance: number, feedRate: number): void {
     if (!this.port?.isOpen) return
+    if (this._isConfiguring) {
+      this.emit('data', '[WARN] Esperando configuración GRBL...')
+      return
+    }
     const cmd = `$J=G91 ${axis}${distance} F${feedRate}`
+    this.emit('data', `[JOG] Enviando: ${cmd}`)
     this.sendImmediate(cmd)
   }
 
-  /** Cancel active jog */
+  /**
+   * Motor diagnostic test — tests BOTH directions (forward and reverse).
+   * Moves 90° forward @ F1500, dwells 1s, then 90° backward @ F1500.
+   * Commands are sent sequentially (waiting for 'ok' between each).
+   */
+  motorTest(axis: string): void {
+    if (!this.port?.isOpen) return
+    this.sendImmediate('$X')
+
+    this.emit('data', `[TEST] Motor ${axis} → Adelante 90°, luego Atrás 90° @ F1500`)
+
+    setTimeout(() => {
+      const commands = [
+        'G91',                        // Incremental mode
+        `G1 ${axis}90 F1500`,         // Forward 90°
+        'G4 P1',                      // Dwell 1s
+        `G1 ${axis}-90 F1500`,        // Backward 90°
+      ]
+      this.sendSettingsSequential(commands, () => {
+        this.emit('data', `[TEST] Motor ${axis} completado`)
+      })
+    }, 300)
+  }
+
+  /** Cancel active jog — sends 0x85 real-time jog cancel (GRBL 1.1h) */
   jogCancel(): void {
     if (!this.port?.isOpen) return
     this.port.write(Buffer.from([0x85]))
@@ -156,6 +317,35 @@ export class GrblController extends EventEmitter {
   /** Unlock after alarm */
   unlock(): void {
     this.sendImmediate('$X')
+  }
+
+  // ── Zero Work Coordinates ─────────────────────────────────────
+
+  /** Zero all work coordinates: sends G92 X0 Y0 Z0, waits for 'ok',
+   *  then forces an immediate status query to sync the DRO. */
+  zeroWorkCoordinates(): void {
+    if (!this.port?.isOpen) return
+
+    // Listen for the next 'ok' to know when G92 has been accepted
+    const onAck = (data: string): void => {
+      if (data === 'ok') {
+        this.removeListener('data', onAck)
+
+        // Immediately query status so GRBL reports the new WPos
+        this.statusQuery()
+
+        // Also emit a synthetic zeroed status so the UI updates instantly
+        // (the real '?' response will confirm moments later)
+        this.emit('status', {
+          state: 'Idle',
+          wpos: { x: 0, y: 0, z: 0 },
+        })
+      }
+    }
+    this.on('data', onAck)
+
+    // Send the full G92 command with all axes
+    this.sendImmediate('G92 X0 Y0 Z0')
   }
 
   // ── Immediate Command ────────────────────────────────────────
@@ -288,6 +478,32 @@ export class GrblController extends EventEmitter {
     // Status report: <Idle|WPos:0.000,0.000,0.000|Buf:15,128>
     if (line.startsWith('<') && line.endsWith('>')) {
       this.parseStatusReport(line)
+      return
+    }
+
+    // GRBL welcome banner — means GRBL just booted (initial connect or reset)
+    if (line.startsWith('Grbl')) {
+      this.emit('data', line)
+
+      // If we're waiting for GRBL to be ready (initial connect), trigger callback
+      if (this._onGrblReady) {
+        if (this._connectTimeout) {
+          clearTimeout(this._connectTimeout)
+          this._connectTimeout = null
+        }
+        // Brief delay to let GRBL finish initializing after welcome
+        const cb = this._onGrblReady
+        this._onGrblReady = null
+        setTimeout(() => cb(), 200)
+      } else if (this._isConnected) {
+        // Arduino rebooted mid-session (brownout / power glitch).
+        // Re-send safe settings so GRBL is configured again.
+        this.emit('data', '[WARN] Arduino se reinició — reenviando configuración')
+        this.resetStreamState()
+        this.sendSettingsSequential(this.SAFE_GRBL_SETTINGS, () => {
+          this.emit('data', '[INFO] Configuración GRBL para DRV8825 reenviada')
+        })
+      }
       return
     }
 

@@ -196,6 +196,8 @@ export default function App() {
             tow={config.towParameters}
             gcode={gcodeResult?.gcode ?? null}
             layers={config.layers}
+            grblStatus={grblStatus}
+            streamProgress={streamProgress}
           />
         </main>
 

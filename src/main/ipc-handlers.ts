@@ -118,9 +118,18 @@ export function registerIpcHandlers(): void {
   ipcMain.on('serial:home', () => grbl.home())
   ipcMain.on('serial:unlock', () => grbl.unlock())
   ipcMain.on('serial:jog-cancel', () => grbl.jogCancel())
+  ipcMain.on('serial:zero-axes', () => grbl.zeroWorkCoordinates())
+
+  ipcMain.on('serial:send-settings', (_event, settings: string[]) => {
+    grbl.sendSettings(settings)
+  })
 
   ipcMain.on('serial:jog', (_event, axis: string, distance: number, feedRate: number) => {
     grbl.jog(axis, distance, feedRate)
+  })
+
+  ipcMain.on('serial:motor-test', (_event, axis: string) => {
+    grbl.motorTest(axis)
   })
 
   // ─── Forward GRBL events to renderer ─────────────────────────

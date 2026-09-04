@@ -19,7 +19,8 @@ import {
   Crosshair,
   Trash2,
   Clock,
-  Activity
+  Activity,
+  Settings
 } from 'lucide-react'
 
 interface Props {
@@ -43,7 +44,7 @@ export default function MachineControl({
   const [jogStepX, setJogStepX] = useState(10)
   const [jogAngleY, setJogAngleY] = useState(90)
   const [jogAngleZ, setJogAngleZ] = useState(10)
-  const [jogFeedRate, setJogFeedRate] = useState(3000)
+  const [jogFeedRate, setJogFeedRate] = useState(100)
   const [manualCmd, setManualCmd] = useState('')
   const [activeConsole, setActiveConsole] = useState<string[]>(consoleLines)
   const consoleEndRef = useRef<HTMLDivElement>(null)
@@ -86,7 +87,7 @@ export default function MachineControl({
   }
 
   const handleZeroAxes = () => {
-    window.cycloneAPI.sendCommand('G92 X0 Y0 Z0')
+    window.cycloneAPI.zeroAxes()
   }
 
   const handleSendCommand = () => {
@@ -345,6 +346,48 @@ export default function MachineControl({
               <Unlock className="w-3 h-3" />
               <span>Unlock ($X)</span>
             </button>
+          </div>
+
+          {/* GRBL DRV8825 Configuration */}
+          <div className="flex items-center gap-1.5">
+            <button
+              className="btn-secondary flex-1 py-1 text-[11px] text-zinc-300"
+              onClick={() => {
+                window.cycloneAPI.sendSettings([
+                  '$0=10',    // Step pulse 10µs (DRV8825 safe)
+                  '$1=25',    // Disable motors 25ms after idle
+                  '$110=200.000', '$111=200.000', '$112=200.000', // Max rates
+                  '$120=10.000', '$121=10.000', '$122=10.000',    // Accelerations
+                ])
+              }}
+              title="Enviar configuración segura para drivers DRV8825 — limita velocidad y aceleración, desactiva motores en idle"
+            >
+              <Settings className="w-3 h-3 text-cyan-400" />
+              <span>Config DRV8825</span>
+            </button>
+            <button
+              className="btn-secondary flex-1 py-1 text-[11px] text-zinc-300"
+              onClick={() => window.cycloneAPI.sendCommand('$$')}
+              title="Mostrar configuración GRBL actual ($$)"
+            >
+              <Terminal className="w-3 h-3 text-zinc-400" />
+              <span>Ver Config ($$)</span>
+            </button>
+          </div>
+
+          {/* Motor Test — hardware diagnostic */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-zinc-500 whitespace-nowrap">Test Motor:</span>
+            {['X', 'Y', 'Z'].map((axis) => (
+              <button
+                key={axis}
+                className="btn-secondary flex-1 py-1 text-[11px] text-yellow-400 border-yellow-800/40"
+                onClick={() => window.cycloneAPI.motorTest(axis)}
+                title={`Test motor eje ${axis} — movimiento mínimo a velocidad muy baja para verificar hardware`}
+              >
+                <span>⚡ {axis}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
